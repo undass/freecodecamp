@@ -1,0 +1,59 @@
+#! /bin/bash
+
+PSQL="psql -X --username=freecodecamp --dbname=periodic_table --tuples-only -c"
+
+  MAIN() { 
+    #check if input is null
+    if [[ -z $1 ]]
+    then
+      echo "Please provide an element as an argument."
+    else
+      ELEMENT $1
+    fi
+
+  }
+  
+ELEMENT() {
+      #check if its not a number
+    if [[ ! $1 =~ ^[0-9]+$ ]]
+    then
+       ELEMENT=$($PSQL "SELECT atomic_number, atomic_mass, melting_point_celsius, boiling_point_celsius, symbol, name, type FROM properties JOIN elements USING(atomic_number) JOIN types USING(type_id) WHERE elements.name LIKE '$1%' ORDER BY atomic_number LIMIT 1")
+    else
+       ELEMENT=$($PSQL "SELECT atomic_number, atomic_mass, melting_point_celsius, boiling_point_celsius, symbol, name, type FROM properties JOIN elements USING(atomic_number) JOIN types USING(type_id) WHERE elements.atomic_number=$1")
+    fi
+    if [[ -z $ELEMENT ]]
+    then
+      echo "I could not find that element in the database."
+    else
+      echo $ELEMENT | while IFS=\| read ATOMIC_NUMBER MASS MP BP SY NAME TYPE
+      do
+        ATOMIC_NUMBER_F=$(echo $ATOMIC_NUMBER | sed -E 's/ //g')
+        MASS_F=$(echo $MASS | sed 's/ //g')
+        MP_F=$(echo $MP | sed 's/ //g')
+        BP_F=$(echo $BP | sed 's/ //g')
+        SY_F=$(echo $SY | sed 's/ //g')
+        NAME_F=$(echo $NAME | sed 's/ //g')
+        TYPE_F=$(echo $TYPE | sed 's/ //g')
+        #echo "$ATOMIC_NUMBER - $MASS"
+        #echo "The element with atomic number $ATOMIC_NUMBER is $NAME ($SY). It's a $TYPE, with a mass of $MASS amu. $NAME has a melting point of $MP celsius and a boiling point of $BP celsius."
+        echo "The element with atomic number $ATOMIC_NUMBER_F is $NAME_F ($SY_F). It's a $TYPE_F, with a mass of $MASS_F amu. $NAME_F has a melting point of $MP_F celsius and a boiling point of $BP_F celsius."
+      done
+
+    fi
+}
+
+START() {
+  CHECK=$($PSQL "SELECT COUNT(*) FROM elements WHERE atomic_number=1000;")
+  if [[ $CHECK -gt 0 ]] # check if the Z=1000 is still in the database
+  then
+    DLT_PROPERTIES_1000= $($PSQL "DELETE FROM properties WHERE atomic_number=1000;")
+    DLT_ELEMENT_1000= $($PSQL "DELETE FROM elements WHERE atomic_number=1000;")
+    DLT_COLUMN_PROPERTIES_TYPE=$($PSQL "ALTER TABLE properties DROP COLUMN type;")
+    echo $DLT_PROPERTIES_1000
+    echo $DLT_ELEMENT_1000
+    echo $DLT_COLUMN_PROPERTIES_TYPE
+  fi
+MAIN $1
+}
+
+START $1
